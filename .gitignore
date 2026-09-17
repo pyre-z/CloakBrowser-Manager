@@ -24,6 +24,10 @@ dist_arm/
 # Secrets (license key, auth token) — keep .env.example, never .env
 .env
 
+# Local patch: Windows-proprietary fonts, supplied locally and not
+# redistributable — baked into the image but never committed.
+windows-fonts/
+
 # Deploy
 deploy.sh
 

@@ -131,6 +131,21 @@ RELEASE_CHANNEL: str | None = _resolve_setting(
 _AUTH_EXEMPT = frozenset({"/api/auth/status", "/api/auth/login", "/api/health"})
 
 
+def _is_cdp_proxy_path(path: str) -> bool:
+    """Local patch: /api/profiles/<id>/cdp[/...] stays reachable without a token.
+
+    Playwright/Puppeteer attach to a profile through this CDP proxy and cannot
+    send the manager token, so the whole /cdp subtree is exempt. Profile
+    management endpoints (/api/profiles, /api/profiles/<id>, ...) still require
+    the token — narrower than exempting the whole /api/profiles/ prefix.
+    """
+    prefix = "/api/profiles/"
+    if not path.startswith(prefix):
+        return False
+    parts = path[len(prefix):].split("/")
+    return len(parts) >= 2 and parts[1] == "cdp"
+
+
 def _check_auth(scope: Scope) -> bool:
     """Check if the request has a valid auth token (header or cookie)."""
     if AUTH_TOKEN is None:
@@ -265,6 +280,11 @@ class AuthMiddleware:
 
         # Skip auth for exempt endpoints and non-API paths (static frontend)
         if path in _AUTH_EXEMPT or not path.startswith("/api/"):
+            await self.app(scope, receive, send)
+            return
+
+        # Local patch: local CDP clients attach to a profile without a token
+        if _is_cdp_proxy_path(path):
             await self.app(scope, receive, send)
             return
 
