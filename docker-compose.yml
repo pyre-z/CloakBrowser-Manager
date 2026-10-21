@@ -1,6 +1,7 @@
 services:
   manager:
     build: .
+    image: cloak-browser-manager-manager:latest
     restart: unless-stopped
     # Local patch — host networking: the container shares the host netns, so a
     # profile's CDP endpoint (127.0.0.1:<port> inside the container) is
@@ -9,11 +10,13 @@ services:
     # with host networking it is still never exposed publicly.
     network_mode: host
     volumes:
-      - /root/.cloakbrowser-manager:/data
+      - /home/sylvie/.cloakbrowser-manager:/data
       # Local patch — persistent binary cache: with a license key the Pro build
       # is fetched at runtime; without this volume it would be re-downloaded on
       # every container recreate. Mounted over the image's bundled free binary.
-      - /opt/cloak-cache:/root/.cloakbrowser
+      - /home/sylvie/cloak-cache:/root/.cloakbrowser
+      # Janus: 用挂载的 entrypoint 覆盖镜像内硬编码的 loopback 绑定
+      - /home/sylvie/cloak-browser-manager/entrypoint.sh:/entrypoint.sh:ro
     environment:
       # Values come from the manager-root .env (compose reads it automatically).
       - AUTH_TOKEN=${AUTH_TOKEN:-}
@@ -25,5 +28,6 @@ services:
       - ARTIFACT_MAX_TOTAL_BYTES=${ARTIFACT_MAX_TOTAL_BYTES:-}
       # Local patch — panel port (loopback only under host networking)
       - PANEL_PORT=9223
+      - PANEL_HOST=0.0.0.0
     mem_limit: 1.5g
-    cpus: '1'
+    cpus: '1.5'
