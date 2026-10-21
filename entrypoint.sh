@@ -21,6 +21,6 @@ rm -f /tmp/.X1*-lock 2>/dev/null || true
 # Start FastAPI (serves built React + API)
 cd /app
 echo ""
-echo "  CloakBrowser Manager running at http://127.0.0.1:${PANEL_PORT:-9223}"
+echo "  CloakBrowser Manager running at http://${PANEL_HOST:-127.0.0.1}:${PANEL_PORT:-9223}"
 echo ""
-exec uvicorn backend.main:app --host 127.0.0.1 --port "${PANEL_PORT:-9223}" --log-level warning
+exec uvicorn backend.main:app --host "${PANEL_HOST:-127.0.0.1}" --port "${PANEL_PORT:-9223}" --log-level warning
