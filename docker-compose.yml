@@ -1,10 +1,23 @@
 services:
   manager:
     build: .
-    ports:
-      - "127.0.0.1:8080:8080"
+    image: cloak-browser-manager-manager:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # Local patch — host networking: the container shares the host netns, so a
+    # profile's CDP endpoint (127.0.0.1:<port> inside the container) is
+    # reachable on the host as 127.0.0.1:<port>, which Playwright/Puppeteer
+    # clients need. The panel itself binds loopback only (entrypoint.sh), so
+    # with host networking it is still never exposed publicly.
+    network_mode: host
     volumes:
-      - ~/.cloakbrowser-manager:/data
+      - ${DATA_DIR:-/home/sylvie/.cloakbrowser-manager}:/data
+      # Local patch — persistent binary cache: with a license key the Pro build
+      # is fetched at runtime; without this volume it would be re-downloaded on
+      # every container recreate.
+      - ${CLOAK_CACHE:-/home/sylvie/cloak-cache}:/root/.cloakbrowser
+      # Mounted entrypoint so the loopback/port binding can be overridden
+      # without rebuilding (file must stay executable on the host).
+      - ./entrypoint.sh:/entrypoint.sh:ro
     environment:
       # Values come from the manager-root .env (compose reads it automatically).
       - AUTH_TOKEN=${AUTH_TOKEN:-}
@@ -14,3 +27,9 @@ services:
       - ARTIFACT_MAX_BYTES=${ARTIFACT_MAX_BYTES:-}
       - ARTIFACT_MAX_COUNT=${ARTIFACT_MAX_COUNT:-}
       - ARTIFACT_MAX_TOTAL_BYTES=${ARTIFACT_MAX_TOTAL_BYTES:-}
+      # Local patch — panel port/host. Overridable from the shell so a second
+      # instance can run on another port for parallel acceptance testing.
+      - PANEL_PORT=${PANEL_PORT:-9223}
+      - PANEL_HOST=${PANEL_HOST:-0.0.0.0}
+    mem_limit: 1.5g
+    cpus: '1.5'

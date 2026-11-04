@@ -35,3 +35,7 @@ publish-docker.sh
 debug
 backend/version.txt
 .plans
+
+# Local patch: Windows-proprietary fonts, supplied locally and not
+# redistributable — baked into the image but never committed.
+windows-fonts/
