@@ -9,8 +9,20 @@ RUN npm run build
 # Stage 2: Production image
 FROM python:3.12-slim
 
+# Local patch: optional domestic mirrors for apt/pip, because builds on CN hosts
+# hit deb.debian.org at ~24 kB/s and pypi.org at ~16 kB/s (a single apt step can
+# stall for tens of minutes). Defaults are upstream's own endpoints, so a plain
+# `docker build` behaves exactly like upstream; override per build with e.g.
+#   --build-arg APT_MIRROR=mirrors.cloud.tencent.com \
+#   --build-arg PYPI_INDEX=https://mirrors.cloud.tencent.com/pypi/simple
+ARG APT_MIRROR=deb.debian.org
+ARG PYPI_INDEX=https://pypi.org/simple
+RUN sed -i "s|deb.debian.org|${APT_MIRROR}|g" \
+      /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list 2>/dev/null || true
+
 COPY packaging/requirements-build.txt /tmp/requirements-build.txt
-RUN python -m pip install --no-cache-dir -r /tmp/requirements-build.txt
+RUN python -m pip install --no-cache-dir --index-url "${PYPI_INDEX}" \
+      -r /tmp/requirements-build.txt
 
 # Chromium system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,10 +38,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Playwright system deps (matches test-infra)
-RUN pip install --no-cache-dir playwright && playwright install-deps chromium 2>/dev/null || true && pip uninstall -y playwright
+RUN pip install --no-cache-dir --index-url "${PYPI_INDEX}" playwright && playwright install-deps chromium 2>/dev/null || true && pip uninstall -y playwright
 
 # Windows core fonts (Arial, Times New Roman, Verdana, etc.)
-RUN echo "deb http://deb.debian.org/debian trixie contrib" >> /etc/apt/sources.list.d/contrib.list \
+RUN echo "deb http://${APT_MIRROR}/debian trixie contrib" >> /etc/apt/sources.list.d/contrib.list \
     && echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | debconf-set-selections \
     && apt-get update && apt-get install -y --no-install-recommends ttf-mscorefonts-installer \
     && fc-cache -f \
@@ -46,7 +58,7 @@ WORKDIR /app
 
 # Python deps
 COPY backend/requirements.txt /app/backend/
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+RUN pip install --no-cache-dir --index-url "${PYPI_INDEX}" -r /app/backend/requirements.txt
 
 # Backend code
 COPY backend/ /app/backend/
